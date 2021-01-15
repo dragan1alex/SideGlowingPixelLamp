@@ -198,7 +198,9 @@ void fadePixelColor(uint16_t number, uint32_t currentTime)
  * If the pixels light up fine don't mess around with the below functions
  */
 
-
+/*
+ * Needs to be called after MCU boot to start the asynchronous pixel data transfer
+ */
 void initDmaTransfer()
 {
 	pixelData.currentOutputLed = 2;
@@ -219,14 +221,19 @@ void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim)
 	transferDataToDma(DMA_COMPLETE);
 }
 
+/*
+ * Function responsible for translating 8-bit red, green, blue channels to pwm values for the LEDs to understand
+ * For more info about the protocol go to https://datasheet.lcsc.com/szlcsc/2009231607_TCWIN-TC1010RGB-3CSA-TX1812-1010A-1010_C784559.pdf
+ * or any neopixel documentation.
+ */
 void copyLedToBuffer(uint16_t number, uint8_t* buffer)
 {
 	int8_t i;
 	uint8_t currentValue;
 	if(number >= NUMBER_OF_PIXELS || buffer == NULL)
 		return;
-	//Colors are stored in the 24-bit data buffer in this order: green, red, blue
-	//Copy green color
+	/* Colors are stored in the 24-bit data buffer in this order: red, green, blue */
+	/* Copy red color */
 	currentValue = pixel[number].r * pixel[number].brightness / 100;
 	for(i=7;i>=0;i--)
 	{
@@ -236,7 +243,7 @@ void copyLedToBuffer(uint16_t number, uint8_t* buffer)
 			*buffer = 20;
 		buffer++;
 	}
-	//Copy red color
+	/* Copy green color */
 	currentValue = pixel[number].g * pixel[number].brightness / 100;
 	for(i=7;i>=0;i--)
 	{
@@ -246,7 +253,7 @@ void copyLedToBuffer(uint16_t number, uint8_t* buffer)
 			*buffer = 20;
 		buffer++;
 	}
-	//Copy blue color
+	/* Copy blue color */
 	currentValue = pixel[number].b * pixel[number].brightness / 100;
 	for(i=7;i>=0;i--)
 	{
@@ -258,12 +265,16 @@ void copyLedToBuffer(uint16_t number, uint8_t* buffer)
 	}
 }
 
+/*
+ * State machine for deciding what kind of data to put in the DMA buffer
+ */
 void transferDataToDma(DMA_INT_STATUS intStatus)
 {
+	/* Sanity check, intStatus should always be alternating between DMA_COMPLETE and DMA_HALF_COMPLETE */
 	if(intStatus == pixelData.dmaIntStatus)
 		return;
 	pixelData.dmaIntStatus = intStatus;
-	//If led data needs to be transferred
+	/* If led data needs to be transferred */
 	if(pixelData.dataType == LED_DATA)
 	{
 		if(intStatus == DMA_COMPLETE)
@@ -275,14 +286,17 @@ void transferDataToDma(DMA_INT_STATUS intStatus)
 			copyLedToBuffer(pixelData.currentOutputLed, &pixelData.buffer[0]);
 		}
 		pixelData.currentOutputLed++;
+		/* Reached the last LED, next time sent the reset code for the LEDs to display the transmitted color */
 		if(pixelData.currentOutputLed == NUMBER_OF_PIXELS)
 		{
 			pixelData.dataType = RESET_DATA;
 			pixelData.resetDataCounter = 0;
 		}
 	}
+	/* Reset sequence needs to be sent */
 	else
 	{
+		/* First 2 calls need to fill the DMA data buffer with 0 (reset PWM value) */
 		if(pixelData.resetDataCounter < 2)
 		{
 			uint8_t i;
@@ -298,6 +312,7 @@ void transferDataToDma(DMA_INT_STATUS intStatus)
 			}
 		}
 		pixelData.resetDataCounter++;
+		/* Reset code transmission complete, start sending pixel colors again */
 		if(pixelData.resetDataCounter >= PIXEL_RESET_COUNTER_MAX)
 		{
 			pixelData.currentOutputLed = 0;

@@ -1,1 +1,3 @@
 /Debug/
+/Release/*
+!/Release/side_glowing_lamp.hex

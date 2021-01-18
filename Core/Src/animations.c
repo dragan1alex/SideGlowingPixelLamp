@@ -94,7 +94,7 @@ void MonitorTask(void *argument)
 {
   /* USER CODE BEGIN 5 */
 	int8_t i;
-	State enabledInAuto;
+	State enabledInAuto = TRUE;
 	/* Infinite loop */
 	for(;;)
 	{
@@ -355,7 +355,7 @@ void RandomChaseSingleColor(void* args)
 void Rainbow(void* args)
 {
 	int32_t i;
-	uint32_t phase;
+	uint32_t phase = 0;
 	uint8_t r,g,b;
 	uint8_t phaseMult = 768 / NUMBER_OF_PIXELS;
 	while(1)

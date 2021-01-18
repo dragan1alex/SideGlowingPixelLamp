@@ -1,12 +1,26 @@
+/*
+ * SPI Flash HAL driver for interfacing with SPI flash devices (designed for Winbond flash ICs like W25X40CL)
+ *
+ * Prerequisites:
+ *  - main.h must contain the forward declaration of the hspi instance used for communicating with the flash
+ *
+ * Usage:
+ *  - read data from the flash: 	readBytesFlash
+ *  - write data to the flash: 		writeBytesFlash
+ *  	- before a write operation you may want to erase that specific sector or block of memory first with
+ *  	sectorErase4KFlash, blockErase32KFlash, blockErase64KFlash or chipEraseFlash for the whole memory
+ */
+
 #ifndef SPI_FLASH_H
 #define SPI_FLASH_H
 
-/*globalVariables.h must contain the forward declaration for the SPI device, usually declared in main.c*/
-#include "globalVariables.h"
+#include "main.h"
 
+/* Setup defines, modify with your own hspi instance and CS GPIO port and pin */
 #define SPIFLASH_CS_PORT			GPIOB
 #define SPIFLASH_CS_PIN				GPIO_PIN_12
 #define SPIFLASH_SPI_DEVICE			hspi2
+/* End of setup variables */
 
 #define SPIFLASH_WRITEENABLE      	0x06        // write enable
 #define SPIFLASH_WRITEDISABLE     	0x04        // write disable

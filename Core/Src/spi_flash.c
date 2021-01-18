@@ -8,26 +8,50 @@
 #include "spi_flash.h"
 #include "main.h"
 
-void selectFlash() {
+/*
+ * Pull CS pin low to select the flash IC
+ */
+void selectFlash()
+{
 	HAL_GPIO_WritePin(SPIFLASH_CS_PORT, SPIFLASH_CS_PIN, GPIO_PIN_RESET);
 }
 
-void unselectFlash() {
+/*
+ * Pull CS pin high to release the flash IC
+ */
+void unselectFlash()
+{
 	HAL_GPIO_WritePin(SPIFLASH_CS_PORT, SPIFLASH_CS_PIN, GPIO_PIN_SET);
 }
 
-uint8_t receiveFlash(){
+/*
+ * Receive a byte from the flash IC
+ *
+ * return: 	byte from flash
+ */
+uint8_t receiveFlash()
+{
 	uint8_t byte;
 	HAL_SPI_Receive(&SPIFLASH_SPI_DEVICE, &byte, (uint16_t)1, 10);
 	return byte;
 }
 
-uint8_t transferFlash(uint8_t data){
+/*
+ * Send a byte of data to the flash IC
+ *
+ * return:	always 1, can be ignored
+ */
+uint8_t transferFlash(uint8_t data)
+{
 	HAL_SPI_Transmit(&SPIFLASH_SPI_DEVICE,&data,1,10);
 	return 1;
 }
 
-
+/*
+ * Read the flash status register
+ *
+ * return:	status register value
+ */
 uint8_t readFlashStatus()
 {
 	selectFlash();
@@ -37,23 +61,42 @@ uint8_t readFlashStatus()
 	return status;
 }
 
+/*
+ * Check if the flash IC is busy
+ *
+ * return:	1 if busy, 0 if available
+ */
 uint8_t isFlashBusy()
 {
 	return readFlashStatus() & 1;
 }
 
-
-void commandFlash(uint8_t cmd, uint8_t write){
-	if(write){
+/*
+ * Send a command to the flash IC
+ *
+ * params:	cmd - command to send to the flash
+ * 			write - 1 if the command is a write command, 0 otherwise
+ */
+void commandFlash(uint8_t cmd, uint8_t write)
+{
+	if(write)
+	{
 		commandFlash(SPIFLASH_WRITEENABLE, 0);
 		unselectFlash();
 	}
-	if (cmd != SPIFLASH_WAKE) while(isFlashBusy());
+	if (cmd != SPIFLASH_WAKE)
+		while(isFlashBusy());
 	selectFlash();
 	HAL_SPI_Transmit(&SPIFLASH_SPI_DEVICE, &cmd, 1, 10);
 }
 
-uint32_t readFlashID(){
+/*
+ * Read the UDID of the flash IC
+ *
+ * return:	32bit value of the UDID
+ */
+uint32_t readFlashID()
+{
 	selectFlash();
 	commandFlash(SPIFLASH_IDREAD, 0);
 	uint32_t id = 0;
@@ -64,7 +107,15 @@ uint32_t readFlashID(){
 	return id;
 }
 
-uint8_t readByteFlash(uint32_t address){
+/*
+ * Read a single byte to the flash
+ *
+ * params:	address - 32bit address of the byte to be read
+ *
+ * return:	byte from the specified address
+ */
+uint8_t readByteFlash(uint32_t address)
+{
 	selectFlash();
 	commandFlash(SPIFLASH_ARRAYREAD, 0);
 	transferFlash(address >> 16);
@@ -76,21 +127,34 @@ uint8_t readByteFlash(uint32_t address){
 	return result;
 }
 
-void readBytesFlash(uint32_t address, uint8_t* ret, int len){
+/*
+ * Read multiple bytes from flash
+ *
+ * params:	address - 32bit start address of the memory to be read
+ * 			*ret	- pointer to the structure to receive the data into
+ * 			len		- number of bytes to read from flash
+ */
+void readBytesFlash(uint32_t address, uint8_t* ret, int len)
+{
 	selectFlash();
 	commandFlash(SPIFLASH_ARRAYREAD, 0);
 	transferFlash(address >> 16);
 	transferFlash(address >> 8);
 	transferFlash(address);
 	transferFlash(0);
-	//result = HAL_SPI_TransmitReceive(&SPIFLASH_SPI_DEVICE,bs,ret,len,10);
 	HAL_SPI_Receive(&SPIFLASH_SPI_DEVICE, ret, len, 100);
 	unselectFlash();
 	return;
 }
 
+/*
+ * Write a single byte to flash
+ *
+ * params:	addr 	- 32bit address at which to write the byte
+ * 			byt		- byte to write
+ */
 void writeByteFlash(uint32_t addr, uint8_t byt) {
-	commandFlash(SPIFLASH_BYTEPAGEPROGRAM, 1);  // Byte/Page Program
+	commandFlash(SPIFLASH_BYTEPAGEPROGRAM, 1);
 	transferFlash(addr >> 16);
 	transferFlash(addr >> 8);
 	transferFlash(addr);
@@ -98,7 +162,15 @@ void writeByteFlash(uint32_t addr, uint8_t byt) {
 	unselectFlash();
 }
 
-void writeBytesFlash(uint32_t addr, void* buf, uint16_t len) {
+/*
+ * Write multiple bytes to flash
+ *
+ * params:	addr	- 32bit address at which to write the data
+ * 			*buf	- data to be stored in flash
+ * 			len		- number of bytes to be stored
+ */
+void writeBytesFlash(uint32_t addr, void* buf, uint16_t len)
+{
 	uint32_t addressOffset = 0;
 	uint32_t currentAddress = addr;
 	uint16_t currentTransferSize;
@@ -112,47 +184,73 @@ void writeBytesFlash(uint32_t addr, void* buf, uint16_t len) {
 		unselectFlash();
 		addressOffset += 256;
 	}while(addressOffset < len);
-
 }
 
-void chipEraseFlash() {
+/*
+ * Erase the whole flash IC
+ */
+void chipEraseFlash()
+{
 	commandFlash(SPIFLASH_CHIPERASE, 1);
 	unselectFlash();
 }
 
-/// erase a 4Kbyte sector in a block
-void sectorErase4KFlash(uint32_t addr) {
-	commandFlash(SPIFLASH_BLOCKERASE_4K, 1); // Block Erase
+/*
+ * Erase a 4Kb sector of memory from flash
+ *
+ * params:	addr	- start address of the block
+ */
+void sectorErase4KFlash(uint32_t addr)
+{
+	commandFlash(SPIFLASH_BLOCKERASE_4K, 1);
 	transferFlash(addr >> 16);
 	transferFlash(addr >> 8);
 	transferFlash(addr);
 	unselectFlash();
 }
 
-/// erase a 32Kbyte block
-void blockErase32KFlash(uint32_t addr) {
-	commandFlash(SPIFLASH_BLOCKERASE_32K, 1); // Block Erase
+/*
+ * Erase a 32Kb block of memory from flash
+ *
+ * params:	addr	- start address of the block
+ */
+void blockErase32KFlash(uint32_t addr)
+{
+	commandFlash(SPIFLASH_BLOCKERASE_32K, 1);
 	transferFlash(addr >> 16);
 	transferFlash(addr >> 8);
 	transferFlash(addr);
 	unselectFlash();
 }
 
-/// erase a 64Kbyte block
-void blockErase64KFlash(uint32_t addr) {
-	commandFlash(SPIFLASH_BLOCKERASE_64K, 1); // Block Erase
+/*
+ * Erase a 64Kb block of memory from flash
+ *
+ * params:	addr	- start address of the block
+ */
+void blockErase64KFlash(uint32_t addr)
+{
+	commandFlash(SPIFLASH_BLOCKERASE_64K, 1);
 	transferFlash(addr >> 16);
 	transferFlash(addr >> 8);
 	transferFlash(addr);
 	unselectFlash();
 }
 
-void sleepFlash() {
+/*
+ * Put the flash IC in sleep mode
+ */
+void sleepFlash()
+{
 	commandFlash(SPIFLASH_SLEEP, 0);
 	unselectFlash();
 }
 
-void wakeUpFlash() {
+/*
+ * Wake up the flash IC from sleep mode
+ */
+void wakeUpFlash()
+{
 	commandFlash(SPIFLASH_WAKE, 0);
 	unselectFlash();
 }

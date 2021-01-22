@@ -28,7 +28,7 @@ const osThreadAttr_t randomChaseSingleColor_attributes = {
 const osThreadAttr_t rainbow_attributes = {
   .name = "rainbow",
   .priority = (osPriority_t) osPriorityNormal,
-  .stack_size = 64 * 4
+  .stack_size = 100 * 4
 };
 
 
@@ -136,6 +136,7 @@ void MonitorTask(void *argument)
 					startAnimation();
 				}
 				enabledInAuto = TRUE;
+				osDelay(100);
 			}
 		}
 		else
@@ -222,6 +223,8 @@ void stopAnimation()
 	{
 		if(animationThreads[i] != NULL && osThreadGetState(animationThreads[i]) != osThreadTerminated)
 		{
+			while(threadCanBeTerminated(animationThreads[i]) != 1)
+				osDelay(1);
 			osThreadTerminate(animationThreads[i]);
 			animationThreads[i] = NULL;
 			if(i == NUMBER_OF_ANIMATIONS)

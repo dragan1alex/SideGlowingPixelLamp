@@ -17,6 +17,10 @@
 #define NUMBER_OF_ANIMATIONS	5
 #define DEFAULT_ANIMATION		0
 
+#define threadCanBeTerminated(x) (osThreadGetState(x) == osThreadReady || \
+									osThreadGetState(x) == osThreadRunning || \
+									osThreadGetState(x) == osThreadBlocked )
+
 typedef enum
 {
 	FORWARD,
